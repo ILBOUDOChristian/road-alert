@@ -1,0 +1,18 @@
+---
+name: Tâche technique (Task)
+about: Tâche technique pour le développement
+title: "[E<epic_id>-T<id>] ↳ <Titre>"
+labels: 'type:task'
+assignees: ''
+---
+
+## Description
+Description de la tâche technique à accomplir.
+
+## Critères d'acceptation
+- [ ] Implémentation terminée
+- [ ] Tests ajoutés et fonctionnels
+- [ ] Lint passé sans erreurs
+
+## Dépendances
+- User Story Parente : #XXX

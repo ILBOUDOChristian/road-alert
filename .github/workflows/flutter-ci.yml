@@ -1,0 +1,44 @@
+name: Intégration Continue Flutter
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'frontend-*/**'
+  pull_request:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'frontend-*/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [frontend-mobile-citoyen, frontend-mobile-agent, frontend-admin-web]
+
+    steps:
+    - name: Récupérer le code
+      uses: actions/checkout@v3
+    
+    - name: Configurer Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        
+    - name: Installer les dépendances
+      working-directory: ./${{ matrix.app }}
+      run: flutter pub get
+      
+    - name: Analyser le code Flutter (Analyze)
+      working-directory: ./${{ matrix.app }}
+      run: flutter analyze
+      
+    - name: Exécuter les tests
+      working-directory: ./${{ matrix.app }}
+      run: flutter test
+      
+    - name: Compiler pour le Web (si Admin)
+      if: matrix.app == 'frontend-admin-web'
+      working-directory: ./${{ matrix.app }}
+      run: flutter build web

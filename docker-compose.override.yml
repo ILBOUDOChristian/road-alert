@@ -1,0 +1,38 @@
+# =============================================================================
+# ROADALERT — Surcharge DÉVELOPPEMENT
+# Chargée automatiquement : docker compose up
+# Hot-reload API, ports exposés localement, Adminer
+# =============================================================================
+
+services:
+  db:
+    ports:
+      - "${DB_PORT:-5433}:5432"
+
+  minio:
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+
+  backend:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - "${BACKEND_HOST_PORT:-3001}:3000"
+
+  proxy:
+    ports:
+      - "8080:80"
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8888:8080"
+    depends_on:
+      - db

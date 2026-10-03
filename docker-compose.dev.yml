@@ -1,41 +1,87 @@
-version: '3.8'
-
+# Configuration locale: ports hôte et backend en hot-reload.
 services:
+  db:
+    ports:
+      - "${DB_PORT:-5433}:5432"
+
+  minio:
+    depends_on:
+      rustfs-volume-permissions:
+        condition: service_healthy
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+
+  rustfs-volume-permissions:
+    image: alpine:3.22
+    command: ["sh", "-c", "chown -R 10001:10001 /data && exec tail -f /dev/null"]
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "[ \"$(stat -c '%u:%g' /data)\" = \"10001:10001\" ]"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 2s
+
   backend:
     build:
-      context: ./backend
       target: development
-    ports:
-      - "${PORT:-3001}:3000"
     environment:
       NODE_ENV: development
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: ${DB_USER:-roadalert}
-      DB_PASSWORD: ${DB_PASSWORD:-secret}
-      DB_NAME: ${DB_NAME:-roadalert}
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
-    depends_on:
-      db:
-        condition: service_healthy
 
   proxy:
-    image: nginx:alpine
     ports:
-      - "8081:80"
-      - "4443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - "80:80"
+      - "8080:80"
     depends_on:
-      - backend
+      adminer:
+        condition: service_healthy
 
   adminer:
     image: adminer
     restart: always
     ports:
       - "8888:8080"
+    volumes:
+      - ./nginx/adminer.css:/var/www/html/adminer.css:ro
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 8080) ? 0 : 1);'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  startup-info:
+    image: alpine:3.22
+    depends_on:
+      proxy:
+        condition: service_healthy
+    restart: "no"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        printf '\nSUCCES : tous les services sont demarres et sains.\n'
+        printf '\n%s\n' '=== URL PAR DOMAINE ==='
+        printf '%s\n' \
+          'Frontend admin domaine: http://roadalert.com/' \
+          'API domaine: http://roadalert.com/api/v1' \
+          'Swagger domaine: http://roadalert.com/docs' \
+          'Adminer domaine: http://adminer.roadalert.com/' \
+          'Stockage RustFS domaine: http://storage.roadalert.com/' \
+          'Console RustFS domaine: http://console.storage.roadalert.com/'
+        printf '\n%s\n' '=== URL LOCALHOST ==='
+        printf '%s\n' \
+          'Frontend admin localhost: http://localhost:8080/' \
+          'API localhost: http://localhost:8080/api/v1' \
+          'Swagger localhost: http://localhost:8080/docs' \
+          'Adminer localhost: http://localhost:8888/' \
+          'Stockage RustFS localhost: http://localhost:9002/' \
+          'Console RustFS localhost: http://localhost:9003/'

@@ -1,6 +1,10 @@
 node_modules/
 dist/
 .env
+.env.dev
+**/.env
+!.env.example
+!**/.env.example
 *.log
 .DS_Store
 build/
@@ -9,3 +13,5 @@ build/
 .pub-cache/
 .pub/
 *.iml
+
+.claude/

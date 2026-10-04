@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_mobile_agent/config/env.dart';
 
 void main() {
+  assert(AppConfig.apiBaseUrl.isNotEmpty);
   runApp(const MyApp());
 }
 

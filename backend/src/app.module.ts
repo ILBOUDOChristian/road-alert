@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -17,6 +18,7 @@ import configuration from './config/configuration';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     DatabaseModule,
     AuthModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [

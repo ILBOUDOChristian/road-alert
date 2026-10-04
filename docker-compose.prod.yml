@@ -1,20 +1,18 @@
-version: '3.8'
+# =============================================================================
+# ROADALERT — Surcharge PRODUCTION
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Les URLs / secrets viennent du .env du serveur (NODE_ENV=production).
+# =============================================================================
 
 services:
   backend:
     build:
-      context: ./backend
       target: production
-    ports:
-      - "${PORT:-3001}:3000"
     environment:
       NODE_ENV: production
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
+
+  proxy:
+    restart: unless-stopped
+    ports:
+      - "80:80"

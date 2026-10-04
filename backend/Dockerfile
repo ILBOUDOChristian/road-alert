@@ -28,4 +28,4 @@ COPY . .
 CMD ["npm", "run", "start:dev"]
 
 USER node
-CMD ["node", "dist/main"]
+CMD ["npm", "run", "start:dev"]

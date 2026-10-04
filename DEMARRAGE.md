@@ -1,131 +1,172 @@
-# Guide de Démarrage Rapide (ROADALERT)
+# Démarrage de ROADALERT
 
-Ce document explique comment lancer l'ensemble des services sur votre machine de développement locale.
+## Prérequis
 
-## 1. Démarrer l'infrastructure (Base de données & Nginx)
+- Docker Desktop démarré avec Docker Compose v2.
+- PowerShell ouvert à la racine du dépôt pour utiliser la commande unique.
+- Flutter installé seulement pour lancer les applications mobiles ou développer le frontend hors Docker.
 
-L'infrastructure locale s'appuie sur Docker. Assurez-vous que Docker Desktop est lancé.
+## Démarrer toute la pile web en une commande
 
-```bash
-# Depuis la racine du projet roadalert/
-docker-compose -f docker-compose.dev.yml up -d db proxy
+Depuis PowerShell, à la racine du dépôt, exécuter cette commande pour démarrer toute la pile :
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up --build
 ```
-* **db** : Démarre PostgreSQL (exposé sur le port 5433).
-* **proxy** : Démarre Nginx sur les ports 8081 et 4443 pour intercepter `api.roadalert.com`.
 
-*(N'oubliez pas d'ajouter `127.0.0.1 api.roadalert.com admin.roadalert.com db.roadalert.com` dans votre fichier `C:\Windows\System32\drivers\etc\hosts`).*
+Cette commande exacte démarre toute la pile au premier plan et construit les images. Le service Compose `startup-info` attend que le proxy et ses dépendances soient sains, puis affiche `SUCCES`, les URL par domaine et enfin toutes les URL `localhost`. Les liens sont cliquables dans le terminal VS Code; les URL localhost se trouvent à la fin des logs pour rester visibles dans leur aperçu. Les autres services restent attachés au terminal pour afficher leurs logs. `Ctrl+C` arrête la pile.
 
-## 2. Démarrer le Backend NestJS
+`ps` ne démarre rien : il affiche seulement l'état des conteneurs déjà créés. Si son résultat ne contient que les en-têtes, aucun conteneur du projet n'est actuellement démarré. `down`, lui, arrête et supprime les conteneurs, ce qui explique que `ps` soit vide après cette commande.
 
-Ouvrez un terminal dédié :
+Le fichier `.env.dev` doit exister à la racine avant l'exécution. Il est déjà présent dans ce dépôt local. S'il est absent dans une nouvelle copie du projet, créer une copie du modèle local :
 
-```bash
-cd backend
-npm run start:dev
+```powershell
+Copy-Item .env.example .env.dev
 ```
-Le backend va démarrer sur le port 3001 (en arrière-plan, Nginx redirige `api.roadalert.com:4443` vers ce port).
-Le backend se connecte automatiquement à la base PostgreSQL locale via les identifiants configurés dans `.env.example`.
 
-## 3. Accéder aux Services
+Vérifier ensuite les valeurs locales dans `.env.dev`. Ne pas écraser ce fichier s'il contient déjà vos réglages. `APP_URL=http://roadalert.com` est l'origine du site; `API_URL=http://roadalert.com/api/v1` est l'adresse complète de l'API. `API_PREFIX=api/v1` configure le préfixe des routes NestJS. CORS reçoit seulement les origines, sans chemin.
 
-Une fois l'infrastructure et le backend démarrés, voici vos accès locaux :
+Compose affiche la progression et l'état des conteneurs, mais n'imprime pas automatiquement les URL. Les deux modes d'accès cliquables sont listés ci-dessous.
 
-| Service | URL / Port | Description |
-|---------|------------|-------------|
-| **API REST** | `https://api.roadalert.com:4443` | Endpoint principal du backend |
-| **Swagger UI** | `https://api.roadalert.com:4443/api/v1/docs` | Documentation OpenAPI |
-| **Adminer** | `http://localhost:8888` | Client Web pour voir la base PostgreSQL |
-| **Base de données**| `db.roadalert.com:5433` | Accès PostgreSQL direct |
+Compose crée le réseau et les volumes, initialise PostgreSQL/PostGIS, puis démarre Redis, RustFS (stockage compatible S3), l'API NestJS, le frontend admin Flutter Web, Nginx et Adminer. RustFS remplace l'ancienne image MinIO, qui n'est plus accessible depuis le registre Docker Hub sans authentification. Le service conserve le nom réseau `minio` afin que l'API garde son endpoint S3 interne. Le fichier `docker-compose.dev.yml` active les ports locaux et le hot-reload du backend.
 
-## 4. Démarrer les Applications Flutter
+Le service web à `localhost:8080` est le frontend admin Flutter, actuellement encore sur l'écran de démonstration « Flutter Demo ». Swagger permet de consulter l'API NestJS, mais celle-ci ne contient pas encore de routes CRUD métier. Adminer et la console RustFS sont des interfaces séparées. Le backoffice métier sera développé en interne avec Flutter Web et NestJS; son périmètre est décrit dans [docs/backoffice-admin.md](docs/backoffice-admin.md).
 
-Ouvrez un terminal dédié pour l'application de votre choix (un simulateur iOS/Android ou un navigateur Chrome doit être lancé) :
+La première exécution peut prendre plusieurs minutes, le temps de télécharger les images et de compiler l'API et le frontend. Les données sont conservées dans les volumes Docker lors des arrêts normaux.
 
-**Pour le mobile (Citoyen ou Agent) :**
-```bash
+## Accès locaux
+
+| Composant | Adresse |
+|---|---|
+| Frontend admin Flutter Web | [http://roadalert.com/](http://roadalert.com/) |
+| API NestJS | [http://roadalert.com/api/v1](http://roadalert.com/api/v1) |
+| Swagger | [http://roadalert.com/docs](http://roadalert.com/docs) |
+| Adminer, interface de gestion PostgreSQL | [http://adminer.roadalert.com/](http://adminer.roadalert.com/) |
+| API de stockage compatible S3 (RustFS) | [http://storage.roadalert.com/](http://storage.roadalert.com/) |
+| Console RustFS, gestion des fichiers S3 | [http://console.storage.roadalert.com/](http://console.storage.roadalert.com/) |
+| PostgreSQL/PostGIS (client SQL) | `localhost:5433` |
+
+Liens directs localhost, accessibles sans configurer le fichier `hosts` :
+
+| Composant | Adresse localhost |
+|---|---|
+| Frontend admin Flutter Web | [http://localhost:8080/](http://localhost:8080/) |
+| API NestJS | [http://localhost:8080/api/v1](http://localhost:8080/api/v1) |
+| Swagger | [http://localhost:8080/docs](http://localhost:8080/docs) |
+| Adminer | [http://localhost:8888/](http://localhost:8888/) |
+| API de stockage RustFS | [http://localhost:9002/](http://localhost:9002/) |
+| Console RustFS | [http://localhost:9003/](http://localhost:9003/) |
+| PostgreSQL/PostGIS | `localhost:5433` |
+
+### Connexion Adminer
+
+Dans Adminer, saisir ces paramètres pour ouvrir la base PostgreSQL locale :
+
+| Champ Adminer | Valeur de développement |
+|---|---|
+| Système | PostgreSQL |
+| Serveur | `db` |
+| Utilisateur | `roadalert` |
+| Mot de passe | `roadalert_dev` |
+| Base de données | `roadalert` |
+
+Ces valeurs viennent de `.env.dev` (`DB_USER`, `DB_PASSWORD`, `DB_NAME`). Adminer parle à PostgreSQL depuis le réseau Docker : le serveur est donc `db`, pas `localhost`. Le port `5433` ne sert qu'aux clients SQL lancés directement sur Windows.
+
+### Pourquoi la console RustFS ?
+
+RustFS fournit le stockage de fichiers compatible S3 utilisé par l'API, par exemple pour les pièces jointes et les images téléversées. Sa console permet de visualiser et gérer les buckets et les objets stockés; ce n'est pas l'interface de la base PostgreSQL. Pour la connexion locale, utiliser l'identifiant `roadalert` et le secret `roadalert_minio_dev` de `.env.dev` (variables `MINIO_ROOT_USER` et `MINIO_ROOT_PASSWORD`). L'API se connecte au service en interne à `http://minio:9000`; le domaine `storage.roadalert.com` est l'adresse locale lisible exposée par Nginx.
+
+## Noms locaux et production
+
+Pour faire pointer `roadalert.com` vers cette machine, ouvrir le Bloc-notes **en tant qu'administrateur**, puis modifier :
+
+```text
+C:\Windows\System32\drivers\etc\hosts
+```
+
+Ajouter cette ligne :
+
+```text
+127.0.0.1 roadalert.com
+127.0.0.1 adminer.roadalert.com
+127.0.0.1 storage.roadalert.com
+127.0.0.1 console.storage.roadalert.com
+```
+
+Enregistrer le fichier. Les noms suivants ne contiennent pas de port :
+
+| Service | Adresse locale sans port |
+|---|---|
+| Application admin | `http://roadalert.com/` |
+| API | `http://roadalert.com/api/v1` |
+| Swagger | `http://roadalert.com/docs` |
+| Adminer | `http://adminer.roadalert.com/` |
+| API de stockage compatible S3 (RustFS) | `http://storage.roadalert.com/` |
+| Console RustFS | `http://console.storage.roadalert.com/` |
+
+
+
+## Applications mobiles
+
+Compose démarre le frontend admin web, mais pas les applications mobiles: elles nécessitent un émulateur ou un appareil connecté. Après le démarrage de la pile, dans un autre terminal :
+
+```powershell
 cd frontend-mobile-citoyen
-flutter run
+flutter run --dart-define=API_BASE_URL=http://roadalert.com/api/v1
 ```
 
-**Pour le web (Admin) :**
-```bash
-cd frontend-admin-web
-flutter run -d chrome
-```
-*(Le web admin sera accessible en local sur un port auto-assigné par Flutter, mais la configuration Nginx est déjà prête pour l'héberger sur **https://admin.roadalert.com** une fois compilé).*
+Pour l'application agent, utiliser le dossier `frontend-mobile-agent`. Depuis un émulateur Android, utiliser `http://10.0.2.2/api/v1` comme URL d'API (le port 80 est implicite).
 
----
+Pour lancer l'admin Flutter directement avec hot reload au lieu de son conteneur :
 
-## Commandes utiles
-
-```bash
-# Arrêter les containers
-docker-compose -f docker-compose.dev.yml down
-
-# Voir les logs du backend (si lancé via Docker)
-docker-compose -f docker-compose.dev.yml logs -f backend
-
-# Voir les logs de la base de données
-docker-compose -f docker-compose.dev.yml logs -f db
-
-# Générer une migration TypeORM
-npm run typeorm migration:generate -- -n "description"
-
-# Appliquer les migrations manuellement
-npm run typeorm migration:run
-
-# Lancer les tests unitaires backend
-cd backend && npm run test
-
-# Lancer les tests E2E backend
-cd backend && npm run test:e2e
-
-# Rebuild d'un seul service (ex: backend)
-docker-compose -f docker-compose.dev.yml up -d --build backend
-
-# Démarrage complet (avec build)
-docker-compose -f docker-compose.dev.yml up -d --build
-```
-
----
-
-## Développement local (sans Docker)
-
-### Backend
-
-```bash
-cd backend
-npm install
-
-# Appliquer les migrations TypeORM
-npm run typeorm migration:run
-
-# Lancer l'API NestJS
-npm run start:dev
-```
-
-### Frontend (Flutter Web)
-
-```bash
+```powershell
 cd frontend-admin-web
 flutter pub get
-flutter run -d chrome     # Serveur de dev
-flutter build web         # Build PWA de production
+flutter run -d chrome --dart-define=API_BASE_URL=http://roadalert.com/api/v1
 ```
 
----
+## Arrêt et diagnostic
 
-## Notes importantes Docker Compose
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev ps
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev logs -f backend
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev logs -f frontend-admin-web
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev down
+```
 
-> La base de données PostgreSQL conserve ses données localement grâce au volume Docker `db_data` défini dans `docker-compose.yml`. Si vous souhaitez réinitialiser complètement la BDD, utilisez la commande `docker-compose down -v`.
+`down` arrête les conteneurs sans effacer les données. Pour supprimer aussi les volumes et réinitialiser PostgreSQL, Redis et RustFS, ajouter `-v` à `down`.
 
-Si Docker Desktop n'est pas démarré sur Windows, l'erreur `npipe:////./pipe/dockerDesktopLinuxEngine` apparaît — elle est sans rapport avec la configuration Compose.
+Pour reconstruire uniquement le frontend ou l'API après une modification (usage optionnel, pas requis au démarrage normal) :
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up --build -d frontend-admin-web
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up --build -d backend
+```
+## Développement backend et production
+
+Pour exécuter NestJS sur l'hôte, garder les dépendances disponibles avec `docker compose up -d db redis`, puis :
+
+```powershell
+cd backend
+npm install
+npm run start:dev
+npm run test
+npm run test:e2e
+```
+
+En production, configurer les URLs HTTPS et les secrets dans le `.env` du serveur, puis démarrer avec :
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Ne jamais réutiliser les secrets de développement en production.
 
 ---
 
 ## Backlog & sprints
 
-Le projet suit un backlog organisé par Epics et découpé en Sprints. Le backlog complet est géré directement sur GitHub Projects (ROADALERT BOARD).
+Le backlog est sur GitHub Projects (ROADALERT BOARD).
 
 | Livrable | Format |
 |----------|--------|
@@ -134,34 +175,25 @@ Le projet suit un backlog organisé par Epics et découpé en Sprints. Le backlo
 | Backlog | GitHub Projects (Table, Kanban, Roadmap) |
 | Applications Mobiles | Flutter (Citoyen / Agent) |
 | Web Admin | Flutter Web |
-
 ---
 
 ## Sécurité
 
-- **Authentification** : JWT (JSON Web Tokens) + bcrypt pour le chiffrement des mots de passe.
-- **RBAC (Role-Based Access Control)** : Contrôle granulaire des accès via Guards NestJS (ex: rôles `citoyen`, `agent`, `admin`).
-- **Validation** : Validation stricte des données entrantes via `class-validator` (DTOs NestJS).
-- **Scan de sécurité** : Workflows CI/CD GitHub Actions pour l'analyse des dépendances (`Trivy`) et la détection de secrets (`Trufflehog`).
+- **Authentification** : JWT + bcrypt
+- **RBAC** : Guards NestJS (`citoyen`, `agent`, `admin`)
+- **Validation** : `class-validator`
+- **CI** : Trivy, Trufflehog
 
 ---
 
 ## Structure du projet
 
-```
 roadalert/
-├── backend/                  # API NestJS
-│   ├── src/
-│   │   ├── common/           # Intercepteurs, filtres, guards globaux
-│   │   ├── config/           # Configuration des variables d'environnement
-│   │   ├── database/         # Module TypeORM
-│   │   └── modules/          # Modules métiers (auth, users, reports, map...)
-├── frontend-mobile-citoyen/  # Application Flutter (Citoyens)
-├── frontend-mobile-agent/    # Application Flutter (Agents terrain)
-├── frontend-admin-web/       # Application Flutter Web (Administration)
-├── database/                 # Scripts SQL, initialisation spatiale (PostGIS)
-├── docs/                     # Documentation fonctionnelle et architecture
-├── scripts/                  # Scripts utilitaires (certificats, CI/CD locaux)
-├── nginx/                    # Configuration Reverse Proxy & SSL
-└── .github/                  # Workflows CI/CD & Templates (Issues, PR)
+├── .env.example              # unique modèle d'env (valeurs local uniquement)
+├── docker-compose.yml        # socle (sans ports hôte)
+├── frontend-mobile-agent/
+├── database/
+├── docs/
+├── nginx/
+└── .github/
 ```

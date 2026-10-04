@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { isAllowedOrigin } from './config/cors.origins';
@@ -24,14 +25,37 @@ async function bootstrap() {
   });
   app.setGlobalPrefix(apiPrefix);
 
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('RoadAlert API')
-    .setDescription('The RoadAlert API description')
+    .setDescription(
+      'API REST de gestion des signalements routiers.\n\n' +
+      '**Authentification** : Bearer JWT — obtenez un token via `POST /api/v1/auth/login`.\n\n' +
+      '**Rate limiting** : 100 req/min par défaut, 5 req/min sur les routes de connexion.'
+    )
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'access-token',
+    )
+    .addServer(`http://localhost:${port}`, 'Développement local')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, { useGlobalPrefix: false });
+  SwaggerModule.setup('docs', app, document, {
+    useGlobalPrefix: false,
+    swaggerOptions: {
+      persistAuthorization: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+    },
+  });
 
   await app.listen(port);
 }

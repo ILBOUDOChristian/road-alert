@@ -14,4 +14,10 @@ build/
 .pub/
 *.iml
 
+# IDE
 .claude/
+.settings/
+*.tsbuildinfo
+
+# Coverage
+coverage/
